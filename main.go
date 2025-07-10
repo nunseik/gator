@@ -10,12 +10,12 @@ func main() {
 	if err != nil {
 		fmt.Println("Error reading config:", err)
 	}
-	config.CurrentUserName = "Fabio"
+	config.CurrentUserName = "Test"
 	err = config.SetUser()
 	if err != nil {
 		fmt.Println("Error setting user:", err)
 	} else {
 		fmt.Println("User set successfully:", config.CurrentUserName)
-		fmt.Println("Database URL:", config.DbURL)
+		fmt.Println("Database URL:", config.DBURL)
 	}
 }
