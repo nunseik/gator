@@ -6,18 +6,18 @@ import (
 )
 
 type Config struct {
-	DBURL	  string `json:"db_url"`
+	DBURL           string `json:"db_url"`
 	CurrentUserName string `json:"current_user_name"`
 }
 
-const configFileName = "/workspace/github.com/nunseik/gator/.gatorconfig.json"
+const configFileName = "/.gatorconfig.json"
 
-func Read () (Config, error) {
+func Read() (Config, error) {
 	configFilePath, err := getConfigFilePath()
 	if err != nil {
 		return Config{}, err
 	}
-	
+
 	data, err := os.ReadFile(configFilePath)
 	if err != nil {
 		return Config{}, err
@@ -30,7 +30,7 @@ func Read () (Config, error) {
 	return config, nil
 }
 
-func (cfg Config) SetUser() error{
+func (cfg Config) SetUser() error {
 	data, err := json.Marshal(cfg)
 	if err != nil {
 		return err
