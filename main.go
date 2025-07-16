@@ -1,19 +1,30 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
-	"github.com/nunseik/gator/internal/config"
-	"os"
 	"log"
+	"os"
+
+	_ "github.com/lib/pq"
+	"github.com/nunseik/gator/internal/config"
+	"github.com/nunseik/gator/internal/database"
 )
 
 
 func main() {
-	config, err := config.Read()
+	cfg, err := config.Read()
 	if err != nil {
-		fmt.Println("Error reading config:", err)
+		fmt.Println("Error reading config: ", err)
 	}
-	newState := &state{config: &config}
+	db, err := sql.Open("postgres", cfg.DBURL)
+	if err != nil {
+		fmt.Println("couldn't connect to database: ", err)
+	}
+	defer db.Close()
+	dbQueries := database.New(db)
+	newState := &state{config: &cfg}
+	newState.db = dbQueries
 	commands := &commands{commands: make(map[string]func(*state, command) error)}
 	commands.register("login", handlerLogin)
 	args := os.Args
@@ -27,7 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = config.SetUser()
+	err = cfg.SetUser()
 	if err != nil {
 		log.Fatalf("couldn't set current user: %v", err)
 	}
