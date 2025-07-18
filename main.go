@@ -11,7 +11,6 @@ import (
 	"github.com/nunseik/gator/internal/database"
 )
 
-
 func main() {
 	cfg, err := config.Read()
 	if err != nil {
@@ -26,7 +25,10 @@ func main() {
 	newState := &state{config: &cfg}
 	newState.db = dbQueries
 	commands := &commands{commands: make(map[string]func(*state, command) error)}
+	// Register commands
 	commands.register("login", handlerLogin)
+	commands.register("register", handlerRegister)
+	// Add more commands as needed
 	args := os.Args
 	if len(args) < 2 {
 		fmt.Println("No command provided")

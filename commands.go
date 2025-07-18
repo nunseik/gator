@@ -25,6 +25,11 @@ func handlerLogin(s *state, cmd command) error {
 	if len(cmd.commands) == 0 {
 		return errors.New("login command requires a username")
 	}
+	// Check if the user exists
+	_, err := s.db.GetUser(context.Background(), cmd.commands[0])
+	if err != nil {
+		return fmt.Errorf("could not find user: %v", err)
+	}
 	s.config.CurrentUserName = cmd.commands[0]
 	fmt.Println("User set successfully:", s.config.CurrentUserName)
 	return nil
@@ -52,10 +57,16 @@ func handlerRegister(s *state, cmd command) error {
 	username := cmd.commands[0]
 	// Generate a unique ID for the user using UUID into int32 somehow, not working with int32 directly
 	userUniqueID := uuid.New()
+	// Check if the user already exists
+	existingUser, err := s.db.GetUser(context.Background(), username)
+	if err == nil {
+		return fmt.Errorf("user %s already exists with ID %v", existingUser.Name, existingUser.ID)
+	}
 	newUser, err := s.db.CreateUser(context.Background(), database.CreateUserParams{ID: userUniqueID, CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: username})
 	if err != nil {
 		return fmt.Errorf("could not create user: %v", err)
 	}
 	s.config.CurrentUserName = newUser.Name
+	fmt.Println("User registered successfully:", newUser.Name, "/n with ID:", newUser.ID)
 	return nil
 }
