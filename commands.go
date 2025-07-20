@@ -70,3 +70,10 @@ func handlerRegister(s *state, cmd command) error {
 	fmt.Println("User registered successfully:", newUser.Name, "/n with ID:", newUser.ID)
 	return nil
 }
+func resetUsers(s *state, cmd command) error {
+	err := s.db.ResetUsers(context.Background())
+	if err != nil {		
+		return fmt.Errorf("could not reset users: %v", err)
+	}
+	return nil
+}
