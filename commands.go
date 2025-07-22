@@ -72,8 +72,23 @@ func handlerRegister(s *state, cmd command) error {
 }
 func resetUsers(s *state, cmd command) error {
 	err := s.db.ResetUsers(context.Background())
-	if err != nil {		
+	if err != nil {
 		return fmt.Errorf("could not reset users: %v", err)
+	}
+	return nil
+}
+
+func getAllUsers(s *state, cmd command) error {
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("could not retrieve users: %v", err)
+	}
+	for user := range users {
+		if users[user].Name == s.config.CurrentUserName {
+			fmt.Printf("* %s (current)\n", users[user].Name)
+		} else {
+			fmt.Printf("* %s\n", users[user].Name)
+		}
 	}
 	return nil
 }
