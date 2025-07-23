@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nunseik/gator/internal/config"
 	"github.com/nunseik/gator/internal/database"
+	"github.com/nunseik/gator/internal/gatorapi"
 )
 
 type state struct {
@@ -90,5 +91,20 @@ func getAllUsers(s *state, cmd command) error {
 			fmt.Printf("* %s\n", users[user].Name)
 		}
 	}
+	return nil
+}
+
+func fetchCommand(s *state, cmd command) error {
+	// if len(cmd.commands) == 0 {
+	// 	return errors.New("fetch command requires a feed URL")
+	// }
+	// feedURL := cmd.commands[0]
+	feedURL := "https://www.wagslane.dev/index.xml" // Example feed URL
+	ctx := context.Background()
+	feed, err := gatorapi.FetchFeed(ctx, feedURL)
+	if err != nil {
+		return fmt.Errorf("could not fetch feed: %v", err)
+	}
+	fmt.Print(feed)
 	return nil
 }
