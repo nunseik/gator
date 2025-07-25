@@ -108,3 +108,29 @@ func fetchCommand(s *state, cmd command) error {
 	fmt.Print(feed)
 	return nil
 }
+
+func createFeed(s *state, cmd command) error {
+	if len(cmd.commands) < 2 {
+		return errors.New("create command requires a feed name and URL")
+	}
+	feedName := cmd.commands[0]
+	feedURL := cmd.commands[1]
+	feedID := uuid.New()
+	user, err := s.db.GetUser(context.Background(), s.config.CurrentUserName)
+	if err != nil {
+		return fmt.Errorf("could not find current user: %v", err)
+	}
+	newFeed, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{
+		ID:        feedID,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      feedName,
+		Url:       feedURL,
+		UserID:    user.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("could not create feed: %v", err)
+	}
+	fmt.Print(newFeed)
+	return nil
+}

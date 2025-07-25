@@ -31,6 +31,7 @@ func main() {
 	commands.register("reset", resetUsers)
 	commands.register("users", getAllUsers)
 	commands.register("agg", fetchCommand)
+	commands.register("addfeed", createFeed)
 	// Add more commands as needed
 	args := os.Args
 	if len(args) < 2 {
