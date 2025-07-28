@@ -134,3 +134,22 @@ func createFeed(s *state, cmd command) error {
 	fmt.Print(newFeed)
 	return nil
 }
+
+func getFeed(s *state, cmd command) error {
+	feed, err := s.db.GetFeed(context.Background())
+	if err != nil {
+		return fmt.Errorf("could not retrieve feed: %v", err)
+	}
+	for _, f := range feed {
+		user, err := s.db.GetUserById(context.Background(), f.UserID)
+		if err != nil {
+			return fmt.Errorf("could not find user for feed %s: %v", f.Name, err)
+		}
+		fmt.Printf("Feed Name: %s, URL: %s, User Name: %s\n", f.Name, f.Url, user.Name)
+	}
+	if len(feed) == 0 {
+		fmt.Println("No feeds found.")
+	}
+
+	return nil
+}
