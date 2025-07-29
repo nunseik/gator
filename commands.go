@@ -209,3 +209,23 @@ func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) 
 		return handler(s, cmd, user)
 	}
 }
+
+func unfollowFeed(s *state, cmd command, user database.User) error {
+	if len(cmd.commands) < 1 {
+		return errors.New("unfollow requires a feed URL")
+	}
+	feedURL := cmd.commands[0]
+	feed, err := s.db.GetFeedByURL(context.Background(), feedURL)
+	if err != nil {
+		return fmt.Errorf("could not find feed with URL %s: %v", feedURL, err)
+	}
+	err = s.db.DeleteFeedFollow(context.Background(), database.DeleteFeedFollowParams{
+		FeedID: feed.ID,
+		UserID: user.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("could not unfollow feed: %v", err)
+	}
+	fmt.Printf("Successfully unfollowed feed with URL %s\n", feedURL)
+	return nil
+}
