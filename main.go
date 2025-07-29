@@ -31,10 +31,10 @@ func main() {
 	commands.register("reset", resetUsers)
 	commands.register("users", getAllUsers)
 	commands.register("agg", fetchCommand)
-	commands.register("addfeed", createFeed)
+	commands.register("addfeed", middlewareLoggedIn(createFeed))
 	commands.register("feeds", getFeed)
-	commands.register("follow", createFeedFollow)
-	commands.register("following", getFeedFollows)
+	commands.register("follow", middlewareLoggedIn(createFeedFollow))
+	commands.register("following", middlewareLoggedIn(getFeedFollows))
 	// Add more commands as needed
 	args := os.Args
 	if len(args) < 2 {

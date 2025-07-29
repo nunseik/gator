@@ -109,17 +109,13 @@ func fetchCommand(s *state, cmd command) error {
 	return nil
 }
 
-func createFeed(s *state, cmd command) error {
+func createFeed(s *state, cmd command, user database.User) error {
 	if len(cmd.commands) < 2 {
 		return errors.New("create command requires a feed name and URL")
 	}
 	feedName := cmd.commands[0]
 	feedURL := cmd.commands[1]
 	feedID := uuid.New()
-	user, err := s.db.GetUser(context.Background(), s.config.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("could not find current user: %v", err)
-	}
 	newFeed, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{
 		ID:        feedID,
 		CreatedAt: time.Now(),
@@ -166,15 +162,11 @@ func getFeed(s *state, cmd command) error {
 	return nil
 }
 
-func createFeedFollow(s *state, cmd command) error {
+func createFeedFollow(s *state, cmd command, user database.User) error {
 	if len(cmd.commands) < 1 {
 		return errors.New("follow requires a URL")
 	}
 	feedURL := cmd.commands[0]
-	user, err := s.db.GetUser(context.Background(), s.config.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("could not find current user: %v", err)
-	}
 	feed, err := s.db.GetFeedByURL(context.Background(), feedURL)
 	if err != nil {
 		return fmt.Errorf("could not find feed with URL %s: %v", feedURL, err)
@@ -193,11 +185,7 @@ func createFeedFollow(s *state, cmd command) error {
 	return nil
 }
 
-func getFeedFollows(s *state, cmd command) error {
-	user, err := s.db.GetUser(context.Background(), s.config.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("could not find current user: %v", err)
-	}
+func getFeedFollows(s *state, cmd command, user database.User) error {
 	follows, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
 	if err != nil {
 		return fmt.Errorf("could not retrieve feed follows: %v", err)
@@ -210,4 +198,14 @@ func getFeedFollows(s *state, cmd command) error {
 		fmt.Printf("Follow ID: %s, Feed Name: %s\n", follow.ID, feed.Name)
 	}
 	return nil
+}
+
+func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
+	return func(s *state, cmd command) error {
+		user, err := s.db.GetUser(context.Background(), s.config.CurrentUserName)
+		if err != nil {
+			return fmt.Errorf("user not logged in: %v", err)
+		}
+		return handler(s, cmd, user)
+	}
 }
