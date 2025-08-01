@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -257,7 +259,65 @@ func scrapeFeed(s *state, feed database.Feed) {
 		return
 	}
 	for _, item := range feedData.Channel.Item {
-		fmt.Printf("Found post: %s\n", item.Title)
+		pubDate, err := time.Parse(time.RFC1123Z, item.PubDate)
+		if err != nil {
+			fmt.Printf("Couldn't parse PubDate for post '%s': %v\n", item.Title, err)
+			continue
+		}
+		post, err := s.db.CreatePost(context.Background(), database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+			Title:      item.Title,
+			Url:        item.Link,
+			Description: sql.NullString{String: item.Description, Valid: true},
+			PublishedAt: sql.NullTime{Time: pubDate, Valid: true},
+			FeedID:      feed.ID,
+		})
+		if err != nil {
+			fmt.Printf("Couldn't create post for feed %s: %v\n", feed.Name, err)
+			continue
+		}
+		fmt.Printf("Post created: %s with ID: %s\n", post.Title, post.ID)
 	}
 	fmt.Printf("Feed %s collected, %v posts found", feed.Name, len(feedData.Channel.Item))
+}
+
+func browsePosts(s *state, cmd command) error {
+	var feedURL string
+	var limit string
+	if len(cmd.commands) < 1 {
+		return errors.New("browse command requires a feed URL and an optional limit")
+	} else if len(cmd.commands) == 2 {
+		feedURL = cmd.commands[0]
+		limit = cmd.commands[1]
+	} else {
+		feedURL = cmd.commands[0]
+		limit = "2"
+	}
+	limitInt, err := strconv.Atoi(limit)
+	if err != nil {
+		return fmt.Errorf("invalid limit: %v", err)
+	}
+	if limitInt < 1 {
+		return errors.New("limit must be at least 1")
+	}
+	if limitInt > 100 {
+		return errors.New("limit must not exceed 100")
+	}
+	feed, err := s.db.GetFeedByURL(context.Background(), feedURL)
+	if err != nil {
+		return fmt.Errorf("could not find feed with URL %s: %v", feedURL, err)
+	}
+	posts, err := s.db.GetPostForUser(context.Background(), database.GetPostForUserParams{
+		FeedID: feed.ID,
+		Limit:  int32(limitInt),
+	})
+	if err != nil {
+		return fmt.Errorf("could not retrieve posts for feed %s: %v", feed.Name, err)
+	}
+	for _, post := range posts {
+		fmt.Printf("Post ID: %s, Title: %s, URL: %s\n, Published: %s\n, Description: %s\n", post.ID, post.Title, post.Url, post.PublishedAt.Time.String(), post.Description.String)
+	}
+	return nil
 }
