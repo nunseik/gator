@@ -94,38 +94,6 @@ func getAllUsers(s *state, cmd command) error {
 	return nil
 }
 
-func fetchCommand(s *state, cmd command) error {
-	// if len(cmd.commands) == 0 {
-	// 	return errors.New("fetch command requires a feed URL")
-	// }
-	// feedURL := cmd.commands[0]
-	// feedURL := "https://www.wagslane.dev/index.xml" // Example feed URL
-	// ctx := context.Background()
-	// feed, err := gatorapi.FetchFeed(ctx, feedURL)
-	// if err != nil {
-	// 	return fmt.Errorf("could not fetch feed: %v", err)
-	// }
-	// fmt.Print(feed)
-
-	timeBetweenRequests := cmd.commands[1]
-	feedURL := cmd.commands[0]
-	if timeBetweenRequests == "" {
-		timeBetweenRequests = "10s" // Default to 10 seconds if not provided
-	}
-	fmt.Println("Starting to scrape feeds every", timeBetweenRequests, "from URL:", feedURL)
-
-	duration, err := time.ParseDuration(timeBetweenRequests)
-	if err != nil {
-		return fmt.Errorf("invalid duration: %v", err)
-	}
-	ticker := time.NewTicker(duration)
-	defer ticker.Stop()
-
-	for ; ; <-ticker.C {
-		scrapeFeeds(s, command{name: "scrape", commands: []string{feedURL}})
-	}
-}
-
 func createFeed(s *state, cmd command, user database.User) error {
 	if len(cmd.commands) < 2 {
 		return errors.New("create command requires a feed name and URL")
@@ -247,31 +215,49 @@ func unfollowFeed(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-func scrapeFeeds(s *state, cmd command) error {
-	feedURL := cmd.commands[0]
-	if feedURL == "" {
-		return errors.New("scrape command requires a feed URL")
+func fetchCommand(s *state, cmd command) error {
+	if len(cmd.commands[0]) < 1 || len(cmd.commands[0]) > 2 {
+		return fmt.Errorf("usage: %v <time_between_reqs>", cmd.name)
 	}
+
+	timeBetweenRequests, err := time.ParseDuration(cmd.commands[0])
+	if err != nil {
+		return fmt.Errorf("invalid duration: %w", err)
+	}
+
+	fmt.Printf("Collecting feeds every %s...", timeBetweenRequests)
+
+	ticker := time.NewTicker(timeBetweenRequests)
+
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
+}
+
+func scrapeFeeds(s *state) {
 	feed, err := s.db.GetNextFeedToFetch(context.Background())
 	if err != nil {
-		return fmt.Errorf("could not retrieve feeds: %v", err)
+		fmt.Println("Couldn't get next feeds to fetch", err)
+		return
 	}
-	if feed == (database.Feed{}) {
-		fmt.Println("No feeds to fetch.")
-		return nil
-	}
-	fmt.Printf("Fetching feed: %s\n", feed.Name)
-	err = s.db.MarkFeedFetched(context.Background(), feed.ID)
+	fmt.Println("Found a feed to fetch!")
+	scrapeFeed(s, feed)
+}
+
+func scrapeFeed(s *state, feed database.Feed) {
+	err := s.db.MarkFeedFetched(context.Background(), feed.ID)
 	if err != nil {
-		return fmt.Errorf("could not mark feed as fetched: %v", err)
+		fmt.Printf("Couldn't mark feed %s fetched: %v", feed.Name, err)
+		return
 	}
-	fetchedFeed, err := gatorapi.FetchFeed(context.Background(), feedURL)
+
+	feedData, err := gatorapi.FetchFeed(context.Background(), feed.Url)
 	if err != nil {
-		return fmt.Errorf("could not fetch feed: %v", err)
+		fmt.Printf("Couldn't collect feed %s: %v", feed.Name, err)
+		return
 	}
-	for _, item := range fetchedFeed.Channel.Item {
-		fmt.Printf("Title: %s\n", item.Title)
+	for _, item := range feedData.Channel.Item {
+		fmt.Printf("Found post: %s\n", item.Title)
 	}
-	fmt.Printf("Feed %s fetched successfully.\n", feed.Name)
-	return nil
+	fmt.Printf("Feed %s collected, %v posts found", feed.Name, len(feedData.Channel.Item))
 }
