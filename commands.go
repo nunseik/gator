@@ -99,14 +99,31 @@ func fetchCommand(s *state, cmd command) error {
 	// 	return errors.New("fetch command requires a feed URL")
 	// }
 	// feedURL := cmd.commands[0]
-	feedURL := "https://www.wagslane.dev/index.xml" // Example feed URL
-	ctx := context.Background()
-	feed, err := gatorapi.FetchFeed(ctx, feedURL)
-	if err != nil {
-		return fmt.Errorf("could not fetch feed: %v", err)
+	// feedURL := "https://www.wagslane.dev/index.xml" // Example feed URL
+	// ctx := context.Background()
+	// feed, err := gatorapi.FetchFeed(ctx, feedURL)
+	// if err != nil {
+	// 	return fmt.Errorf("could not fetch feed: %v", err)
+	// }
+	// fmt.Print(feed)
+
+	timeBetweenRequests := cmd.commands[1]
+	feedURL := cmd.commands[0]
+	if timeBetweenRequests == "" {
+		timeBetweenRequests = "10s" // Default to 10 seconds if not provided
 	}
-	fmt.Print(feed)
-	return nil
+	fmt.Println("Starting to scrape feeds every", timeBetweenRequests, "from URL:", feedURL)
+
+	duration, err := time.ParseDuration(timeBetweenRequests)
+	if err != nil {
+		return fmt.Errorf("invalid duration: %v", err)
+	}
+	ticker := time.NewTicker(duration)
+	defer ticker.Stop()
+
+	for ; ; <-ticker.C {
+		scrapeFeeds(s, command{name: "scrape", commands: []string{feedURL}})
+	}
 }
 
 func createFeed(s *state, cmd command, user database.User) error {
@@ -227,5 +244,34 @@ func unfollowFeed(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("could not unfollow feed: %v", err)
 	}
 	fmt.Printf("Successfully unfollowed feed with URL %s\n", feedURL)
+	return nil
+}
+
+func scrapeFeeds(s *state, cmd command) error {
+	feedURL := cmd.commands[0]
+	if feedURL == "" {
+		return errors.New("scrape command requires a feed URL")
+	}
+	feed, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return fmt.Errorf("could not retrieve feeds: %v", err)
+	}
+	if feed == (database.Feed{}) {
+		fmt.Println("No feeds to fetch.")
+		return nil
+	}
+	fmt.Printf("Fetching feed: %s\n", feed.Name)
+	err = s.db.MarkFeedFetched(context.Background(), feed.ID)
+	if err != nil {
+		return fmt.Errorf("could not mark feed as fetched: %v", err)
+	}
+	fetchedFeed, err := gatorapi.FetchFeed(context.Background(), feedURL)
+	if err != nil {
+		return fmt.Errorf("could not fetch feed: %v", err)
+	}
+	for _, item := range fetchedFeed.Channel.Item {
+		fmt.Printf("Title: %s\n", item.Title)
+	}
+	fmt.Printf("Feed %s fetched successfully.\n", feed.Name)
 	return nil
 }
